@@ -241,15 +241,17 @@ option noneCase someCase opt = ifC (isSome opt)
 instance Functor Option where
     fmap f (Option b a) = Option b (f a)
 
+instance Applicative Option
+  where
+    pure  = some
+    (<*>) = ap
+
+
 instance Monad Option where
-    return a  = some a
+    return = pure
     opt >>= k = b { isSome = isSome opt ? (isSome b, false) }
       where b = k (fromSome opt)
 
-instance Applicative Option
-  where
-    pure  = return
-    (<*>) = ap
 
 resistance :: FunC Float -> FunC Float -> Option (FunC Float)
 resistance r1 r2 = do rp1 <- divF 1 r1
@@ -370,17 +372,18 @@ vecToSeq (Indexed l ixf) = Seq 0 step l
 
 data Mon m a = M { unM :: forall b . ((a -> FunC (m b)) -> FunC (m b)) }
 
-instance Monad m => Monad (Mon m) where
-    return a  = M $ \k -> k a
-    M m >>= f = M $ \k -> m (\a -> unM (f a) k)
 
 instance Monad m => Functor (Mon m) where
     fmap f m = m >>= return . f
 
 instance Monad m => Applicative (Mon m)
   where
-    pure  = return
+    pure a = M $ \k -> k a
     (<*>) = ap
+
+instance Monad m => Monad (Mon m) where
+    return  = pure
+    M m >>= f = M $ \k -> m (\a -> unM (f a) k)
 
 instance (Monad m, Syntactic a) => Syntactic (Mon m a) where
     type Internal (Mon m a) = m (Internal a)
